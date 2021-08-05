@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.base.dao.ReportDAO">
+
+    <resultMap type="EstimateReportTO" id="estimateReportResult" >
+        <result property="ESTIMATE_NO" column="ESTIMATE_NO"/>
+        <result property="ESTIMATE_DATE" column="ESTIMATE_DATE"/>
+        <result property="UNIT_OF_ESTIMATE" column="UNIT_OF_ESTIMATE"/>
+        <result property="ESTIMATE_AMOUNT" column="ESTIMATE_AMOUNT"/>
+        <result property="UNIT_PRICE_OF_ESTIMATE" column="UNIT_PRICE_OF_ESTIMATE"/>
+        <result property="SUM_PRICE_OF_ESTIMATE" column="SUM_PRICE_OF_ESTIMATE"/>
+        <result property="ITEM_CODE" column="ITEM_CODE"/>
+        <result property="ITEM_NAME" column="ITEM_NAME"/>
+        <result property="CUSTOMER_NAME" column="CUSTOMER_NAME"/>
+        <result property="CUSTOMER_TEL_NUMBER" column="CUSTOMER_TEL_NUMBER"/>
+        <result property="CUSTOMER_FAX_NUMBER" column="CUSTOMER_FAX_NUMBER"/>
+        <result property="TAX" column="TAX"/>
+        <result property="TOTAL_AMOUNT" column="TOTAL_AMOUNT"/>
+        <result property="TOTAL_ESTIMATE_PRICE" column="TOTAL_ESTIMATE_PRICE"/>
+        <result property="TOTAL_ESTIMATE_PRICE_WITH_TAX" column="TOTAL_ESTIMATE_PRICE_WITH_TAX"/>
+
+    </resultMap>
+
+    <resultMap type="ContractReportTO" id="contractReportResult" >
+        <result property="CONTRACT_NO" column="CONTRACT_NO"/>
+        <result property="CONTRACT_DATE" column="CONTRACT_DATE"/>
+        <result property="ITEM_CODE" column="ITEM_CODE"/>
+        <result property="ITEM_NAME" column="ITEM_NAME"/>
+        <result property="UNIT_PRICE_OF_CONTRACT" column="UNIT_PRICE_OF_CONTRACT"/>
+        <result property="SUM_PRICE_OF_CONTRACT" column="SUM_PRICE_OF_CONTRACT"/>
+        <result property="UNIT_OF_CONTRACT" column="UNIT_OF_CONTRACT"/>
+        <result property="PRODUCTION_REQUIREMENT" column="PRODUCTION_REQUIREMENT"/>
+        <result property="BUSINESS_LICENSE_NUMBER" column="BUSINESS_LICENSE_NUMBER"/>
+        <result property="CUSTOMER_NAME" column="CUSTOMER_NAME"/>
+        <result property="CUSTOMER_CEO" column="CUSTOMER_CEO"/>
+        <result property="CUSTOMER_BUSINESS_CONDITIONS" column="CUSTOMER_BUSINESS_CONDITIONS"/>
+        <result property="CUSTOMER_BUSINESS_ITEMS" column="CUSTOMER_BUSINESS_ITEMS"/>
+        <result property="CUSTOMER_BASIC_ADDRESS" column="CUSTOMER_BASIC_ADDRESS"/>
+        <result property="TAX" column="TAX"/>
+        <result property="TOTALAMOUNT" column="TOTALAMOUNT"/>
+        <result property="SUM_PRICE" column="SUM_PRICE"/>
+        <result property="SUM_AMOUNT" column="SUM_AMOUNT"/>
+        <result property="SUM_TAX" column="SUM_TAX"/>
+        <result property="SUM_TOTALAMOUNT" column="SUM_TOTALAMOUNT"/>
+        <result property="ESTIMATE_AMOUNT" column="ESTIMATE_AMOUNT"/>
+
+    </resultMap>
+
+
+
+    <select id="selectEstimateReport" resultMap="estimateReportResult" parameterType="string" >
+
+        SELECT E.ESTIMATE_NO, E.ESTIMATE_DATE, D.UNIT_OF_ESTIMATE,
+               D.ESTIMATE_AMOUNT,
+               D.UNIT_PRICE_OF_ESTIMATE, D.SUM_PRICE_OF_ESTIMATE, I.ITEM_CODE, I.ITEM_NAME,
+               C.CUSTOMER_NAME, C.CUSTOMER_TEL_NUMBER, C.CUSTOMER_FAX_NUMBER,
+               D.SUM_PRICE_OF_ESTIMATE * 0.1 AS TAX, ( D.UNIT_PRICE_OF_ESTIMATE *
+                                                       D.ESTIMATE_AMOUNT ) + ( D.SUM_PRICE_OF_ESTIMATE * 0.1 ) AS TOTAL_AMOUNT , SUM
+                   ( ( D.UNIT_PRICE_OF_ESTIMATE * D.ESTIMATE_AMOUNT ) ) OVER ( PARTITION BY
+                    E.ESTIMATE_NO ORDER BY E.ESTIMATE_NO ROWS BETWEEN UNBOUNDED PRECEDING
+                    AND
+                    UNBOUNDED FOLLOWING ) AS TOTAL_ESTIMATE_PRICE, SUM ( (
+                                                                             D.UNIT_PRICE_OF_ESTIMATE * D.ESTIMATE_AMOUNT ) + ( D.SUM_PRICE_OF_ESTIMATE *
+                                                                                                                                0.1 ) ) OVER ( PARTITION BY E.ESTIMATE_NO ORDER BY E.ESTIMATE_NO ROWS
+                                                                             BETWEEN
+                                                                             UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING ) AS
+                   TOTAL_ESTIMATE_PRICE_WITH_TAX FROM ESTIMATE E INNER JOIN ESTIMATE_DETAIL D ON
+            E.ESTIMATE_NO = D.ESTIMATE_NO INNER JOIN CUSTOMER C ON E.CUSTOMER_CODE =
+                                                                   C.CUSTOMER_CODE INNER JOIN ITEM I ON D.ITEM_CODE = I.ITEM_CODE WHERE
+            E.ESTIMATE_NO =#{estimateNo}
+
+    </select>
+
+
+    <select id="selectContractReport" resultMap="contractReportResult" parameterType="string">
+			<![CDATA[
+        WITH CONTRACT_INFO AS
+                 ( SELECT
+                       CONTRACT.CONTRACT_NO, CONTRACT.CONTRACT_DATE,
+                       CONTRACT_DETAIL.ITEM_CODE, CONTRACT_DETAIL.ITEM_NAME, CONTRACT_DETAIL.UNIT_PRICE_OF_CONTRACT, CONTRACT_DETAIL.SUM_PRICE_OF_CONTRACT,CONTRACT_DETAIL.UNIT_OF_CONTRACT,CONTRACT_DETAIL.ESTIMATE_AMOUNT,
+                       CUSTOMER.BUSINESS_LICENSE_NUMBER, CUSTOMER.CUSTOMER_NAME, CUSTOMER.CUSTOMER_CEO, CUSTOMER.CUSTOMER_BASIC_ADDRESS, CUSTOMER.CUSTOMER_BUSINESS_CONDITIONS, CUSTOMER.CUSTOMER_BUSINESS_ITEMS,
+                       CONTRACT_DETAIL.SUM_PRICE_OF_CONTRACT*0.1 TAX,
+                       (CONTRACT_DETAIL.UNIT_PRICE_OF_CONTRACT*CONTRACT_DETAIL.ESTIMATE_AMOUNT)+(CONTRACT_DETAIL.SUM_PRICE_OF_CONTRACT*0.1) TOTALAMOUNT
+                   FROM
+                       CONTRACT CONTRACT INNER JOIN CONTRACT_DETAIL CONTRACT_DETAIL ON CONTRACT.CONTRACT_NO = CONTRACT_DETAIL.CONTRACT_NO
+                                         INNER JOIN CUSTOMER CUSTOMER ON CONTRACT.CUSTOMER_CODE = CUSTOMER.CUSTOMER_CODE
+                                         INNER JOIN ITEM ITEM ON CONTRACT_DETAIL.ITEM_CODE = ITEM.ITEM_CODE
+                   WHERE CONTRACT.CONTRACT_NO = #{orderDraftNo} ),
+
+             CONTRACT_SUM AS
+                 ( SELECT SUM(SUM_PRICE_OF_CONTRACT) SUM_PRICE, SUM(ESTIMATE_AMOUNT) SUM_AMOUNT,
+                          SUM(SUM_PRICE_OF_CONTRACT)*0.1 SUM_TAX,
+                          (SUM(SUM_PRICE_OF_CONTRACT)*0.1)+SUM(SUM_PRICE_OF_CONTRACT) SUM_TOTALAMOUNT
+                   FROM
+                       CONTRACT_INFO)
+
+        SELECT * FROM CONTRACT_INFO, CONTRACT_SUM
+        ]]>
+	</select>
+
+
+</mapper>
